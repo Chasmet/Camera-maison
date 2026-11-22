@@ -1,0 +1,96 @@
+name: CHK Cameras — Build, Release signée et mises à jour
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: chk-cameras-release
+  cancel-in-progress: false
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer les sources
+        uses: actions/checkout@v4
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Android 34
+        run: sdkmanager 'platforms;android-34' 'build-tools;34.0.0'
+      - name: Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Générer le wrapper officiel
+        run: gradle wrapper --gradle-version 8.7 --distribution-type bin
+      - name: Compiler Debug
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :app:assembleDebug -PgithubRepository="$GITHUB_REPOSITORY"
+      - name: Artifact APK de test
+        uses: actions/upload-artifact@v4
+        with:
+          name: camera-maison-debug-${{ github.run_number }}
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+      - name: Examiner la configuration de signature
+        id: signing
+        env:
+          KS: ${{ secrets.CHK_KEYSTORE_BASE64 }}
+          PW: ${{ secrets.CHK_KEYSTORE_PASSWORD }}
+          ALIAS: ${{ secrets.CHK_KEY_ALIAS }}
+          KEY_PW: ${{ secrets.CHK_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KS" ] && [ -n "$PW" ] && [ -n "$ALIAS" ] && [ -n "$KEY_PW" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo 'Clé de signature stable absente : aucune Release installable ne sera créée.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Extraire la clé stable depuis GitHub Secrets
+        if: steps.signing.outputs.ready == 'true'
+        env:
+          KS: ${{ secrets.CHK_KEYSTORE_BASE64 }}
+        run: |
+          printf '%s' "$KS" | base64 -d > "$RUNNER_TEMP/chk-release.jks"
+          chmod 600 "$RUNNER_TEMP/chk-release.jks"
+      - name: Compiler une Release signée
+        if: steps.signing.outputs.ready == 'true'
+        env:
+          CHK_KEYSTORE_PATH: ${{ runner.temp }}/chk-release.jks
+          CHK_KEYSTORE_PASSWORD: ${{ secrets.CHK_KEYSTORE_PASSWORD }}
+          CHK_KEY_ALIAS: ${{ secrets.CHK_KEY_ALIAS }}
+          CHK_KEY_PASSWORD: ${{ secrets.CHK_KEY_PASSWORD }}
+        run: |
+          VERSION="1.0.${GITHUB_RUN_NUMBER}"
+          ./gradlew --no-daemon :app:assembleRelease \
+            -PversionName="$VERSION" -PversionCode="$GITHUB_RUN_NUMBER" \
+            -PgithubRepository="$GITHUB_REPOSITORY"
+          cp app/build/outputs/apk/release/app-release.apk chk-cameras-release.apk
+          sha256sum chk-cameras-release.apk > chk-cameras-release.apk.sha256
+      - name: Artifact APK signé
+        if: steps.signing.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: camera-maison-release-${{ github.run_number }}
+          path: chk-cameras-release.apk
+          if-no-files-found: error
+      - name: Créer la Release GitHub automatiquement
+        if: steps.signing.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v1.0.${GITHUB_RUN_NUMBER}"
+          gh release create "$TAG" chk-cameras-release.apk chk-cameras-release.apk.sha256 \
+            --target "$GITHUB_SHA" --title "CHK Caméras $TAG" \
+            --notes "Version signée : mise à jour dans l'application sans suppression des données, sous réserve de la même clé de signature."

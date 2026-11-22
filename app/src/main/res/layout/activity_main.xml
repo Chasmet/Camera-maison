@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@color/ink" android:orientation="vertical">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:padding="16dp" android:gravity="center_vertical" android:orientation="horizontal">
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:orientation="vertical">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="CHK CAMÉRAS" android:textColor="@color/accent"
+                android:textStyle="bold" android:textSize="23sp"/>
+            <TextView android:id="@+id/tvStatus" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:text="Non connecté"
+                android:textColor="@color/text_muted" android:textSize="12sp" />
+        </LinearLayout>
+        <Button android:id="@+id/btnSettings" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:text="Options" android:textAllCaps="false"/>
+    </LinearLayout>
+    <ScrollView android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1" android:fillViewport="true">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:padding="12dp">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:background="@drawable/card_background" android:padding="16dp"
+                android:text="Tes caméras Aiwit : état, batterie et historique. Le direct vidéo utilise encore l’application officielle."
+                android:textColor="@color/text_muted" android:textSize="13sp"/>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:paddingTop="12dp">
+                <Button android:id="@+id/btnLogin" android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="Connexion" android:textAllCaps="false"/>
+                <Button android:id="@+id/btnRefresh" android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="Actualiser" android:textAllCaps="false"/>
+            </LinearLayout>
+            <EditText android:id="@+id/inputSearch" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:hint="Rechercher une caméra"
+                android:singleLine="true" android:inputType="text"
+                android:padding="12dp" android:textColor="@color/text_main"
+                android:textColorHint="@color/text_muted"/>
+            <CheckBox android:id="@+id/checkFavorites" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:text="Afficher uniquement les favoris"/>
+            <TextView android:id="@+id/tvDevicesTitle" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:paddingTop="12dp"
+                android:paddingBottom="8dp" android:text="Mes caméras"
+                android:textColor="@color/text_main" android:textSize="20sp" android:textStyle="bold"/>
+            <LinearLayout android:id="@+id/deviceContainer" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:orientation="vertical"/>
+            <LinearLayout android:id="@+id/historyPanel" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:orientation="vertical"
+                android:visibility="gone" android:paddingTop="18dp">
+                <TextView android:id="@+id/tvHistoryTitle" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:text="Historique"
+                    android:textColor="@color/text_main" android:textSize="20sp" android:textStyle="bold"/>
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <Button android:id="@+id/btnDate" android:layout_width="0dp"
+                        android:layout_weight="1" android:layout_height="wrap_content"
+                        android:text="Choisir une date" android:textAllCaps="false"/>
+                    <Button android:id="@+id/btnExport" android:layout_width="0dp"
+                        android:layout_weight="1" android:layout_height="wrap_content"
+                        android:text="Exporter CSV" android:textAllCaps="false"/>
+                </LinearLayout>
+                <TextView android:id="@+id/tvHistoryInfo" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:textColor="@color/text_muted"
+                    android:padding="8dp" android:text="Choisir une caméra" />
+                <LinearLayout android:id="@+id/recordingContainer" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:orientation="vertical" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

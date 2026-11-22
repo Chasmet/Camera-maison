@@ -1,0 +1,1 @@
+Les builds Debug ne remplacent pas les Releases signées. Configurer les quatre secrets CHK_KEYSTORE_BASE64, CHK_KEYSTORE_PASSWORD, CHK_KEY_ALIAS et CHK_KEY_PASSWORD pour autoriser la signature stable et la publication d'une Release à chaque modification de main. Ne jamais ajouter de clé au dépôt.

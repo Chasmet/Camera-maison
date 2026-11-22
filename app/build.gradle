@@ -1,0 +1,50 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.chk.cameras'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.chk.cameras'
+        minSdk 21
+        targetSdk 34
+        versionCode (project.findProperty('versionCode') ?: '1').toInteger()
+        versionName (project.findProperty('versionName') ?: '1.0.0').toString()
+        buildConfigField 'String', 'GITHUB_REPOSITORY', '"' + (project.findProperty('githubRepository') ?: 'Chasmet/Camera-maison') + '"'
+    }
+
+    buildFeatures { buildConfig true }
+
+    signingConfigs {
+        release {
+            def ks = System.getenv('CHK_KEYSTORE_PATH')
+            if (ks != null && !ks.trim().isEmpty()) {
+                storeFile file(ks)
+                storePassword System.getenv('CHK_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('CHK_KEY_ALIAS')
+                keyPassword System.getenv('CHK_KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (System.getenv('CHK_KEYSTORE_PATH')) {
+                signingConfig signingConfigs.release
+            }
+        }
+        debug {
+            applicationIdSuffix '.debug'
+            versionNameSuffix '-dev'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    lint { abortOnError true }
+}
