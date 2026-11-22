@@ -24,6 +24,17 @@ Dépôt : `Chasmet/Camera-maison`. Application Android Java, Android 5+, compile
 
 Les caméras Aiwit ne diffusent pas nécessairement un flux RTSP/ONVIF. Un serveur n'est pas capable de recevoir leur vidéo tant que le pont d'interopérabilité Aiwit n'existe pas. **Aucune simulation de direct n'est fournie.**
 
+## Diagnostic des mises à jour (22 novembre 2026)
+
+**Constat vérifié dans le dépôt** : la liste des Releases GitHub était vide, alors que la compilation Debug n°6 avait réussi. Une compilation Debug n'est pas une Release signée.
+
+- APK de test : `com.chk.cameras.debug`, avec une clé de signature Debug du runner éphémère. Il est impossible de mettre directement la version finale `com.chk.cameras` par-dessus ce paquet ou de garantir la même clé Debug entre deux exécutions.
+- Mise à jour définitive : il faut installer une **première** APK Release signée de `com.chk.cameras`. Toutes les mises à jour ultérieures utiliseront cette identité et le même certificat, avec conservation des données.
+- Le dépôt des mises à jour est fixé dans l'application : `Chasmet/Camera-maison`. Aucun réglage manuel de l'URL nécessaire.
+- L'application indique maintenant explicitement quand elle est en mode Debug et quand aucune Release signée n'est disponible. Le bouton « Mise à jour » est accessible dès l'accueil.
+- La signature stable requiert une création unique d'une clé de signature **hors du dépôt public**, puis les quatre secrets GitHub ci-dessous. **Ne jamais publier de clé privée ou mot de passe dans ce dépôt public.**
+- Les contrôles de signature d'Android et la confirmation système sont obligatoires ; l'application ne peut pas installer silencieusement son APK.
+
 ## Signatures et mises à jour
 
 Les secrets GitHub `CHK_KEYSTORE_BASE64`, `CHK_KEYSTORE_PASSWORD`, `CHK_KEY_ALIAS` et `CHK_KEY_PASSWORD` doivent contenir **la même** clé de signature à chaque version. Le workflow `.github/workflows/build.yml` compile Debug, puis Release signée si les secrets sont disponibles, et publie la Release. L'installation par-dessus l'APK déjà présent exige le même `applicationId` et la même signature.

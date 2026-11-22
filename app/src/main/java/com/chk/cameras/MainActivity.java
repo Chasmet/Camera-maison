@@ -92,6 +92,16 @@ public final class MainActivity extends Activity {
         loginButton.setOnClickListener(v -> showLogin());
         refreshButton.setOnClickListener(v -> refreshDevices());
         findViewById(R.id.btnSettings).setOnClickListener(v -> showSettings());
+        Button updateButton = findViewById(R.id.btnCheckUpdate);
+        updateButton.setOnClickListener(v -> updater.check(true));
+        TextView updateStatus = findViewById(R.id.tvUpdateStatus);
+        if (BuildConfig.DEBUG) {
+            updateStatus.setText("Version de test " + BuildConfig.VERSION_NAME
+                    + " · première version signée requise");
+        } else {
+            updateStatus.setText("Version " + BuildConfig.VERSION_NAME
+                    + " · mises à jour automatiques via Camera-maison");
+        }
         favorites.setOnCheckedChangeListener((b, checked) -> renderDevices());
         dateButton.setOnClickListener(v -> chooseDate());
         exportButton.setOnClickListener(v -> exportCsv());
@@ -495,18 +505,16 @@ public final class MainActivity extends Activity {
     }
 
     private void showSettings() {
-        String[] actions = { "Configurer le dépôt GitHub des mises à jour",
-                "Vérifier une mise à jour maintenant",
+        String[] actions = { "Vérifier les mises à jour",
                 "Ajouter une caméra au direct",
                 "Déconnexion du compte Aiwit", "À propos et confidentialité" };
         new AlertDialog.Builder(this)
                 .setTitle("Options CHK Caméras")
                 .setItems(actions, (dialog, choice) -> {
                     switch (choice) {
-                        case 0: configureRepo(); break;
-                        case 1: updater.check(true); break;
-                        case 2: configureStream(null, "Caméra maison", true); break;
-                        case 3: logout(); break;
+                        case 0: updater.check(true); break;
+                        case 1: configureStream(null, "Caméra maison", true); break;
+                        case 2: logout(); break;
                         default: info("Confidentialité",
                                 "Application personnelle sans publicités ni analyseurs de comportement.\n"
                                 + "Connexion directe chiffrée vers le cloud Aiwit pour les métadonnées.\n"
@@ -517,30 +525,6 @@ public final class MainActivity extends Activity {
                                 + "Le direct RTSP / HLS est intégré dans CHK Caméras. "
                                 + "Le protocole vidéo Aiwit P2P reste non compatible.");
                     }
-                }).show();
-    }
-
-    private void configureRepo() {
-        EditText field = new EditText(this);
-        field.setSingleLine(true);
-        field.setHint("propriétaire/nom-du-depot");
-        field.setText(vault.repository());
-        int padding = (int) (16 * getResources().getDisplayMetrics().density);
-        field.setPadding(padding, padding, padding, padding);
-        new AlertDialog.Builder(this)
-                .setTitle("Dépôt GitHub de mises à jour")
-                .setMessage("Indique le dépôt contenant les Releases signées de CHK Caméras. Exemple : Chasmet/Camera-maison. Le dépôt doit réellement exister et être accessible.")
-                .setView(field)
-                .setNegativeButton("Annuler", null)
-                .setPositiveButton("Enregistrer", (dialog, which) -> {
-                    String repo = field.getText().toString().trim();
-                    if (!repo.isEmpty() && !repo.matches("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")) {
-                        info("Dépôt invalide", "Format requis : propriétaire/nom-du-depot");
-                        return;
-                    }
-                    vault.setRepository(repo);
-                    vault.setLastUpdateCheck(0L);
-                    Toast.makeText(this, "Configuration enregistrée", Toast.LENGTH_SHORT).show();
                 }).show();
     }
 

@@ -36,7 +36,19 @@ public final class UpdateManager {
     }
 
     public void check(boolean manual) {
-        String repository = vault.repository().trim();
+        // Une version Debug a un identifiant et une signature différents d'une Release.
+        // Elle ne peut pas recevoir les APK signés de production par-dessus.
+        if (BuildConfig.DEBUG || activity.getPackageName().endsWith(".debug")) {
+            if (manual) message("Version de test — mise à jour impossible",
+                    "Cette APK est une version Debug. Android ne peut pas la remplacer "
+                    + "par la version définitive sans une première installation signée. "
+                    + "Tes futures mises à jour fonctionneront ensuite dans CHK Caméras "
+                    + "avec la même clé de signature. Ne désinstalle pas cette version "
+                    + "avant d'avoir sauvegardé tes paramètres.");
+            return;
+        }
+        // Dépôt fixé à la compilation : aucune configuration manuelle nécessaire.
+        String repository = BuildConfig.GITHUB_REPOSITORY.trim();
         if (!repository.matches("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")) {
             if (manual) message("Mises à jour", "Configure d'abord un dépôt GitHub privé ou public dans Options, sous la forme propriétaire/dépôt.");
             return;
@@ -66,7 +78,9 @@ public final class UpdateManager {
                     }
                 }
                 if (apkUrl == null) {
-                    if (manual) message("Mise à jour incomplète", "La Release ne contient pas l'APK signé attendu.");
+                    if (manual) message("Mise à jour incomplète",
+                            "La Release GitHub ne contient pas chk-cameras-release.apk. "
+                            + "Aucune installation non signée ne sera proposée.");
                     return;
                 }
                 final String url = apkUrl, hash = digest;
@@ -80,7 +94,16 @@ public final class UpdateManager {
                             .show();
                 });
             } catch (Exception ex) {
-                if (manual) message("Vérification impossible", "Vérifie le dépôt, Internet et l'existence d'une Release : " + safeError(ex));
+                if ("NO_SIGNED_RELEASE".equals(ex.getMessage())) {
+                    vault.setLastUpdateCheck(System.currentTimeMillis());
+                    if (manual) message("Pas encore de mise à jour disponible",
+                            "Le dépôt " + repository + " ne contient aucune Release signée. "
+                            + "La compilation Debug seule ne crée pas une mise à jour installable. "
+                            + "Il faut d'abord configurer la clé de signature permanente dans les secrets GitHub.");
+                } else if (manual) {
+                    message("Vérification impossible",
+                            "Connexion à GitHub impossible : " + safeError(ex));
+                }
             }
         }, "chk-update-check").start();
     }
@@ -187,7 +210,9 @@ public final class UpdateManager {
         conn.setRequestProperty("User-Agent", "CHK-Cameras-Android");
         conn.setRequestProperty("Accept", "application/vnd.github+json");
         try {
-            if (conn.getResponseCode() != 200) throw new IllegalStateException("GitHub HTTP " + conn.getResponseCode());
+            int status = conn.getResponseCode();
+            if (status == 404) throw new IllegalStateException("NO_SIGNED_RELEASE");
+            if (status != 200) throw new IllegalStateException("GitHub HTTP " + status);
             try (InputStream stream = conn.getInputStream()) {
                 ByteArrayOutputStream bytes = new ByteArrayOutputStream();
                 byte[] buffer = new byte[4096];
