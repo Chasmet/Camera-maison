@@ -10,8 +10,8 @@ android {
         applicationId 'com.chk.cameras'
         minSdk 21
         targetSdk 34
-        versionCode (project.findProperty('versionCode') ?: '1').toInteger()
-        versionName (project.findProperty('versionName') ?: '1.0.0').toString()
+        versionCode = Integer.parseInt(project.findProperty('appVersionCode')?.toString() ?: '1')
+        versionName = project.findProperty('appVersionName')?.toString() ?: '1.0.0'
         buildConfigField 'String', 'GITHUB_REPOSITORY', '"' + (project.findProperty('githubRepository') ?: 'Chasmet/Camera-maison') + '"'
     }
 
