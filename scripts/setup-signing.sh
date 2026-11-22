@@ -15,10 +15,27 @@ for tool in gh keytool openssl base64; do
 done
 gh auth status >/dev/null
 GH_SECRETS="$(gh secret list --repo "$REPO" --json name --jq '.[].name')"
-if grep -qx "CHK_KEYSTORE_BASE64" <<< "$GH_SECRETS"; then
-  echo "Une clé de signature GitHub existe déjà. Aucune rotation automatique autorisée."
-  echo "Vérifie la présence des quatre secrets puis relance le workflow GitHub."
+REQUIRED=(CHK_KEYSTORE_BASE64 CHK_KEYSTORE_PASSWORD CHK_KEY_ALIAS CHK_KEY_PASSWORD)
+PRESENT=0
+MISSING=()
+for secret in "${REQUIRED[@]}"; do
+  if grep -qx "$secret" <<< "$GH_SECRETS"; then
+    PRESENT=$((PRESENT + 1))
+  else
+    MISSING+=("$secret")
+  fi
+done
+if [[ "$PRESENT" -eq 4 ]]; then
+  echo "Signature permanente déjà configurée : réutilisation sans changer la clé."
+  gh workflow run build.yml --repo "$REPO" --ref main
+  echo "Relance de la Release signée demandée."
   exit 0
+fi
+if [[ "$PRESENT" -gt 0 ]]; then
+  echo "Secrets de signature partiels : configuration interrompue, clé NON régénérée." >&2
+  echo "Secrets manquants : ${MISSING[*]}" >&2
+  echo "Récupérer la clé locale d'origine et réparer la configuration. Ne jamais remplacer un certificat existant." >&2
+  exit 1
 fi
 mkdir -p "$SIGN_DIR"
 chmod 700 "$SIGN_DIR"

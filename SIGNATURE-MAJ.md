@@ -17,3 +17,11 @@ Le script génère **une seule** clé locale, configure les quatre secrets chiff
 Une fois la Release créée dans `https://github.com/Chasmet/Camera-maison/releases`, installer une seule fois cette version officielle. Toutes les versions suivantes gardant le même identifiant d'application et le même certificat seront proposées dans CHK Caméras, avec confirmation par le système Android.
 
 La vérification automatique ne peut pas forcer une installation silencieuse ni contourner les autorisations Android. Elle ne dépend pas d'un serveur personnel Render.
+
+## Vérifications de sécurité du script
+
+- Si les quatre secrets sont déjà configurés, le script **réutilise la signature actuelle** et ne génère pas de nouvelle clé.
+- Si un secret existe mais que les autres manquent, il **s'arrête sans écraser de clé**, afin d'éviter de casser les mises à jour.
+- Les secrets GitHub ne sont pas lisibles en clair, même par leur propriétaire après enregistrement ; seule leur présence est vérifiable.
+- Chaque APK Release est vérifiée avec `apksigner verify` avant publication.
+- Le résumé GitHub Actions signale explicitement un build Debug sans Release, même lorsque le build technique est marqué réussi.

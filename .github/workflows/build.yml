@@ -58,7 +58,10 @@ jobs:
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo 'Clé de signature stable absente : aucune Release installable ne sera créée.' >> "$GITHUB_STEP_SUMMARY"
+            echo '### ⚠️ Aucune APK de mise à jour installable' >> "$GITHUB_STEP_SUMMARY"
+            echo 'L’APK Debug est compilée pour test uniquement. Les quatre secrets de signature CHK_* ne sont pas tous présents.' >> "$GITHUB_STEP_SUMMARY"
+            echo 'Configurer la clé une fois avec le script sécurisé : `bash scripts/setup-signing.sh` depuis un terminal GitHub authentifié.' >> "$GITHUB_STEP_SUMMARY"
+            echo 'La signature permanente et la première GitHub Release sont obligatoires avant toute mise à jour dans l’application.' >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Extraire la clé stable depuis GitHub Secrets
         if: steps.signing.outputs.ready == 'true'
@@ -80,7 +83,10 @@ jobs:
             -PappVersionName="$VERSION" -PappVersionCode="$GITHUB_RUN_NUMBER" \
             -PgithubRepository="$GITHUB_REPOSITORY"
           cp app/build/outputs/apk/release/app-release.apk chk-cameras-release.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs chk-cameras-release.apk
           sha256sum chk-cameras-release.apk > chk-cameras-release.apk.sha256
+          echo '### ✅ APK Release signée et vérifiée' >> "$GITHUB_STEP_SUMMARY"
+          echo "Version : $VERSION — paquet com.chk.cameras" >> "$GITHUB_STEP_SUMMARY"
       - name: Artifact APK signé
         if: steps.signing.outputs.ready == 'true'
         uses: actions/upload-artifact@v4
