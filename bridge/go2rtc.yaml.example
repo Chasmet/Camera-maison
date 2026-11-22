@@ -1,0 +1,10 @@
+# Exemple de PASSERELLE pour une caméra qui expose DÉJÀ un flux RTSP.
+# Aiwit/EKEN propriétaires : NON COMPATIBLE tant que le protocole P2P n'est pas pris en charge.
+# Ne pas publier cette configuration avec les identifiants réels.
+api:
+  listen: '127.0.0.1:1984'
+rtsp:
+  listen: ':8554'
+streams:
+  maison:
+    - 'rtsp://UTILISATEUR:MOT_DE_PASSE@192.168.1.100:554/stream1'
