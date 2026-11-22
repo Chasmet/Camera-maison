@@ -34,11 +34,10 @@ import java.util.concurrent.Executors;
 /**
  * Console personnelle pour son propre compte Aiwit.
  * Métadonnées fonctionnelles sous réserve de compatibilité de l'API non officielle.
- * Vidéo live / audio P2P restent dans l'application Aiwit du fabricant.
+ * Le lecteur direct est intégré; compatibilité P2P Aiwit non validée.
  */
 public final class MainActivity extends Activity {
     private static final int REQUEST_CSV = 1001;
-    private static final String OFFICIAL_APP = "com.eken.aiwit";
     private final ExecutorService tasks = Executors.newSingleThreadExecutor();
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final List<CloudApi.Device> devices = new ArrayList<>();
@@ -52,6 +51,7 @@ public final class MainActivity extends Activity {
     };
 
     private SessionVault vault;
+    private StreamStore streamStore;
     private CloudApi cloud;
     private UpdateManager updater;
     private String sessionId;
@@ -68,6 +68,7 @@ public final class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         vault = new SessionVault(this);
+        streamStore = new StreamStore(this);
         cloud = new CloudApi(vault.appId());
         updater = new UpdateManager(this, vault);
         sessionId = vault.load();
@@ -87,6 +88,7 @@ public final class MainActivity extends Activity {
         dateButton = findViewById(R.id.btnDate);
         exportButton = findViewById(R.id.btnExport);
 
+        findViewById(R.id.btnAddStream).setOnClickListener(v -> configureStream(null, "Caméra maison", true));
         loginButton.setOnClickListener(v -> showLogin());
         refreshButton.setOnClickListener(v -> refreshDevices());
         findViewById(R.id.btnSettings).setOnClickListener(v -> showSettings());
@@ -103,7 +105,7 @@ public final class MainActivity extends Activity {
 
         updateSessionUI();
         if (sessionId != null) refreshDevices();
-        else showWelcome();
+        else renderDevices();
     }
 
     @Override protected void onResume() {
@@ -125,8 +127,7 @@ public final class MainActivity extends Activity {
     }
 
     private void showWelcome() {
-        deviceContainer.removeAllViews();
-        showMessageIn(deviceContainer, "Connecte ton compte Aiwit pour récupérer la liste de tes caméras.");
+        renderDevices();
     }
 
     private void updateSessionUI() {
@@ -179,7 +180,12 @@ public final class MainActivity extends Activity {
 
     private void refreshDevices() {
         if (busy) return;
-        if (sessionId == null) { showLogin(); return; }
+        if (sessionId == null) {
+            renderDevices();
+            info("Mode local", "Les caméras RTSP / HLS fonctionnent sans compte Aiwit. "
+                    + "Connecte Aiwit uniquement pour récupérer ses métadonnées.");
+            return;
+        }
         setBusy(true);
         final String currentSession = sessionId;
         status.setText("Actualisation des appareils…");
@@ -246,14 +252,52 @@ public final class MainActivity extends Activity {
                 renderDevices();
             });
             row.findViewById(R.id.btnHistory).setOnClickListener(v -> selectHistory(d));
-            row.findViewById(R.id.btnLive).setOnClickListener(v -> openOfficial());
+            row.findViewById(R.id.btnLive).setOnClickListener(v -> {
+                String id = "aiwit:" + d.id;
+                StreamStore.Profile saved = streamStore.get(id);
+                if (saved == null) configureStream(id, name(d), false);
+                else startLive(id);
+            });
+            ((Button) row.findViewById(R.id.btnLive)).setText(streamStore.get("aiwit:" + d.id) == null
+                    ? "Configurer le direct" : "Voir direct");
             row.findViewById(R.id.btnRename).setOnClickListener(v -> rename(d));
             deviceContainer.addView(row);
             visible++;
         }
-        deviceTitle.setText("Mes caméras (" + visible + "/" + devices.size() + ")");
-        if (devices.isEmpty()) showMessageIn(deviceContainer,
-                "Aucune caméra trouvée, ou synchronisation non effectuée.");
+        List<StreamStore.Profile> local = streamStore.manualProfiles();
+        for (StreamStore.Profile p : local) {
+            if (favorites.isChecked() && !vault.isFavorite(p.id)) continue;
+            if (!filter.isEmpty() && !p.name.toLowerCase(Locale.ROOT).contains(filter)) continue;
+            View row = getLayoutInflater().inflate(R.layout.row_device, deviceContainer, false);
+            ((TextView) row.findViewById(R.id.tvCameraName)).setText(p.name);
+            ((TextView) row.findViewById(R.id.tvCameraDetail)).setText(
+                    "Direct dans CHK Caméras · RTSP / serveur personnel");
+            Button star = row.findViewById(R.id.btnFavorite);
+            star.setText(vault.isFavorite(p.id) ? "★" : "☆");
+            star.setOnClickListener(v -> {
+                vault.setFavorite(p.id, !vault.isFavorite(p.id));
+                renderDevices();
+            });
+            Button edit = row.findViewById(R.id.btnHistory);
+            edit.setText("Modifier le flux");
+            edit.setOnClickListener(v -> configureStream(p.id, p.name, true));
+            row.findViewById(R.id.btnLive).setOnClickListener(v -> startLive(p.id));
+            Button delete = row.findViewById(R.id.btnRename);
+            delete.setText("Supprimer cette caméra");
+            delete.setOnClickListener(v -> new AlertDialog.Builder(this)
+                    .setTitle("Supprimer " + p.name + " ?")
+                    .setMessage("Cette action supprime uniquement le profil vidéo de CHK Caméras.")
+                    .setNegativeButton("Annuler", null)
+                    .setPositiveButton("Supprimer", (dialog, choice) -> {
+                        streamStore.delete(p.id);
+                        renderDevices();
+                    }).show());
+            deviceContainer.addView(row);
+            visible++;
+        }
+        deviceTitle.setText("Mes caméras (" + visible + "/" + (devices.size() + local.size()) + ")");
+        if (devices.isEmpty() && local.isEmpty()) showMessageIn(deviceContainer,
+                "Ajoute une caméra pour regarder son flux ici, sans ouvrir Aiwit.");
         else if (visible == 0) showMessageIn(deviceContainer,
                 "Aucune caméra ne correspond au filtre.");
     }
@@ -392,24 +436,68 @@ public final class MainActivity extends Activity {
         return '"' + value.replace("\"", "\"\"") + '"';
     }
 
-    private void openOfficial() {
-        Intent intent = getPackageManager().getLaunchIntentForPackage(OFFICIAL_APP);
-        if (intent != null) startActivity(intent);
-        else new AlertDialog.Builder(this)
-                .setTitle("Direct vidéo Aiwit")
-                .setMessage("Le flux P2P est propriétaire. Installe ou réactive l'application officielle Aiwit pour regarder et parler via tes caméras.")
-                .setNegativeButton("Fermer", null)
-                .setPositiveButton("Voir sur Play Store", (d, w) -> {
-                    Intent store = new Intent(Intent.ACTION_VIEW,
-                            Uri.parse("https://play.google.com/store/apps/details?id=" + OFFICIAL_APP));
-                    startActivity(store);
+    private void startLive(String profileId) {
+        StreamStore.Profile profile = streamStore.get(profileId);
+        if (profile == null) {
+            info("Direct indisponible", "Aucune source vidéo pour cette caméra. "
+                    + "Une caméra Aiwit P2P propriétaire nécessite encore une passerelle compatible.");
+            return;
+        }
+        Intent intent = new Intent(this, LiveActivity.class);
+        intent.putExtra(LiveActivity.EXTRA_PROFILE_ID, profileId);
+        startActivity(intent);
+    }
+
+    /** Ajoute un flux direct accessible au téléphone; ne lance aucune application extérieure. */
+    private void configureStream(String id, String suggestedName, boolean manual) {
+        StreamStore.Profile previous = id == null ? null : streamStore.get(id);
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (18 * getResources().getDisplayMetrics().density);
+        form.setPadding(padding, padding, padding, padding);
+        TextView explanation = new TextView(this);
+        explanation.setText("Source RTSP (rtsp://…) ou HLS (https://…/live.m3u8). "
+                + "La vidéo s'affiche dans CHK Caméras. Pour une caméra Aiwit P2P, "
+                + "l'adresse n'est pas encore disponible : un relais compatible devra d'abord être établi.");
+        explanation.setTextColor(Color.rgb(181, 194, 213));
+        form.addView(explanation);
+        EditText nameField = new EditText(this);
+        nameField.setSingleLine(true);
+        nameField.setHint("Nom de la caméra");
+        nameField.setText(previous == null ? suggestedName : previous.name);
+        form.addView(nameField);
+        EditText uriField = new EditText(this);
+        uriField.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_VARIATION_URI);
+        uriField.setSingleLine(true);
+        uriField.setHint("rtsp://… ou https://…/live.m3u8");
+        if (previous != null) uriField.setText(previous.uri);
+        form.addView(uriField);
+        new AlertDialog.Builder(this)
+                .setTitle(id == null ? "Ajouter une caméra en direct" : "Configurer le direct")
+                .setView(form)
+                .setNegativeButton("Annuler", null)
+                .setPositiveButton("Enregistrer et regarder", (dialog, which) -> {
+                    String address = uriField.getText().toString().trim();
+                    try {
+                        String selectedId = id == null
+                                ? streamStore.createManual(nameField.getText().toString(), address)
+                                : id;
+                        if (id != null) streamStore.save(selectedId,
+                                nameField.getText().toString(), address, manual);
+                        renderDevices();
+                        startLive(selectedId);
+                    } catch (Exception e) {
+                        info("Source vidéo invalide", "Une adresse RTSP ou HTTP(S) valide est nécessaire. "
+                                + "Aucun flux n'a été enregistré.");
+                    }
                 }).show();
     }
 
     private void showSettings() {
         String[] actions = { "Configurer le dépôt GitHub des mises à jour",
                 "Vérifier une mise à jour maintenant",
-                "Ouvrir l'application officielle Aiwit",
+                "Ajouter une caméra au direct",
                 "Déconnexion du compte Aiwit", "À propos et confidentialité" };
         new AlertDialog.Builder(this)
                 .setTitle("Options CHK Caméras")
@@ -417,7 +505,7 @@ public final class MainActivity extends Activity {
                     switch (choice) {
                         case 0: configureRepo(); break;
                         case 1: updater.check(true); break;
-                        case 2: openOfficial(); break;
+                        case 2: configureStream(null, "Caméra maison", true); break;
                         case 3: logout(); break;
                         default: info("Confidentialité",
                                 "Application personnelle sans publicités ni analyseurs de comportement.\n"
@@ -426,7 +514,8 @@ public final class MainActivity extends Activity {
                                 + "Mot de passe jamais enregistré.\n"
                                 + "Aucun accès à la caméra ou au micro du téléphone.\n"
                                 + "Actualisation uniquement lorsque l'application est ouverte.\n"
-                                + "La vidéo P2P et l'interphone restent dans Aiwit.");
+                                + "Le direct RTSP / HLS est intégré dans CHK Caméras. "
+                                + "Le protocole vidéo Aiwit P2P reste non compatible.");
                     }
                 }).show();
     }
