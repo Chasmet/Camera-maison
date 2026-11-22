@@ -26,9 +26,10 @@ jobs:
       - name: Android SDK 34 via le runner préinstallé
         run: |
           echo "ANDROID_HOME=${ANDROID_HOME}"
-          command -v sdkmanager
-          (yes | sdkmanager --licenses >/dev/null) || true
-          sdkmanager 'platforms;android-34' 'build-tools;34.0.0'
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          test -x "$SDKMANAGER"
+          (yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses >/dev/null) || true
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" 'platforms;android-34' 'build-tools;34.0.0'
       - name: Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
         with:
