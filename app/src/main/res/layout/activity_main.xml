@@ -33,7 +33,7 @@
             android:orientation="vertical" android:padding="12dp">
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:background="@drawable/card_background" android:padding="16dp"
-                android:text="Le direct vidéo s’affiche ici, sans ouvrir Aiwit. Ajoute une caméra RTSP ou un flux HLS de ta passerelle personnelle. Les caméras Aiwit P2P restent en cours de compatibilité."
+                android:text="Pour les caméras Aiwit, utilise « Connexion » puis « Actualiser ». L'affichage du direct P2P nécessite toujours une compatibilité spécifique. Les flux RTSP/HLS sont facultatifs et indépendants du compte Aiwit."
                 android:textColor="@color/text_muted" android:textSize="13sp"/>
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="horizontal" android:paddingTop="12dp">
@@ -44,7 +44,7 @@
             </LinearLayout>
             <Button android:id="@+id/btnAddStream"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:text="+ Ajouter une caméra / un flux vidéo"
+                android:text="Ajouter un flux RTSP/HLS (optionnel)"
                 android:textAllCaps="false" />
             <EditText android:id="@+id/inputSearch" android:layout_width="match_parent"
                 android:layout_height="wrap_content" android:hint="Rechercher une caméra"

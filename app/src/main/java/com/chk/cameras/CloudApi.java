@@ -99,6 +99,10 @@ public final class CloudApi {
                 + encode(sessionId) + "/" + encode(appId), null);
         JSONObject info = content(envelope);
         JSONArray items = info.optJSONArray("list");
+        if (items == null) {
+            throw new IOException("Réponse Aiwit : liste d'appareils absente. "
+                    + "La connexion au cloud n'est pas suffisante pour synchroniser les caméras.");
+        }
         List<Device> list = new ArrayList<>();
         if (items != null) {
             for (int i = 0; i < items.length(); i++) {
@@ -108,6 +112,9 @@ public final class CloudApi {
                     if (!d.id.isEmpty()) list.add(d);
                 }
             }
+        }
+        if (items.length() > 0 && list.isEmpty()) {
+            throw new IOException("Caméras reçues mais identifiants non reconnus par CHK Caméras.");
         }
         return list;
     }
@@ -143,8 +150,9 @@ public final class CloudApi {
         conn.setReadTimeout(20000);
         conn.setUseCaches(false);
         conn.setRequestProperty("AppName", "aiwit");
-        conn.setRequestProperty("AppLang", "fr");
-        conn.setRequestProperty("AppVersion", "3.1.1");
+        conn.setRequestProperty("AppLang", "en");
+        // Version d'en-tête validée par le client Aiwit indépendant (mai 2026).
+        conn.setRequestProperty("AppVersion", "3.5.6");
         conn.setRequestProperty("AppID", appId);
         conn.setRequestProperty("OS", "2");
         conn.setRequestProperty("User-Agent", "okhttp/4.10.0");
@@ -173,6 +181,11 @@ public final class CloudApi {
     private static JSONObject content(JSONObject json) throws IOException {
         if (json.optInt("resultCode", -1) != 0) {
             String message = json.optString("msg", "Erreur du cloud Aiwit.");
+            if (message.contains("账号或密码错误")) {
+                message = "Aiwit refuse cette connexion (compte ou mot de passe incorrect selon le serveur). "
+                        + "Si les mêmes identifiants fonctionnent dans Aiwit officiel, "
+                        + "la connexion non officielle de CHK Caméras reste incompatible.";
+            }
             if (message.length() > 180) message = message.substring(0, 180);
             throw new IOException("Service Aiwit : " + message);
         }

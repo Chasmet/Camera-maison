@@ -58,6 +58,7 @@ public final class MainActivity extends Activity {
     private String user;
     private CloudApi.Device selectedDevice;
     private boolean busy;
+    private String cloudDiagnostic = "Aucune connexion aux caméras Aiwit vérifiée.";
     private TextView status, deviceTitle, historyTitle, historyInfo;
     private EditText search;
     private CheckBox favorites;
@@ -142,7 +143,9 @@ public final class MainActivity extends Activity {
 
     private void updateSessionUI() {
         boolean connected = sessionId != null;
-        status.setText(connected ? "Session : " + user : "Compte Aiwit non connecté");
+        status.setText(connected
+                ? "Session Aiwit mémorisée — vérification des caméras nécessaire"
+                : "Compte Aiwit non connecté");
         loginButton.setText(connected ? "Changer de compte" : "Connexion Aiwit");
         refreshButton.setEnabled(connected && !busy);
     }
@@ -172,6 +175,7 @@ public final class MainActivity extends Activity {
                             runOnUiThread(() -> {
                                 sessionId = session.sessionId;
                                 user = session.username;
+                                cloudDiagnostic = "Compte authentifié. Chargement de la liste des caméras…";
                                 selectedDevice = null;
                                 historyPanel.setVisibility(View.GONE);
                                 setBusy(false);
@@ -181,6 +185,9 @@ public final class MainActivity extends Activity {
                         } catch (Exception e) {
                             runOnUiThread(() -> {
                                 setBusy(false);
+                                cloudDiagnostic = "Connexion Aiwit refusée. Aucun nouvel appareil synchronisé.";
+                                status.setText("Connexion Aiwit refusée — aucune caméra synchronisée");
+                                renderDevices();
                                 info("Connexion impossible", friendlyError(e));
                             });
                         }
@@ -207,14 +214,22 @@ public final class MainActivity extends Activity {
                     devices.clear();
                     devices.addAll(fresh);
                     setBusy(false);
-                    status.setText("Compte : " + user + " · mise à jour "
-                            + new SimpleDateFormat("HH:mm", Locale.FRANCE).format(new Date()));
+                    cloudDiagnostic = fresh.isEmpty()
+                            ? "Le serveur Aiwit a répondu mais n'a retourné aucune caméra pour ce compte. "
+                              + "Vérifie que tes appareils apparaissent dans Aiwit officiel avec le même compte."
+                            : fresh.size() + " caméra(s) Aiwit récupérée(s) avec succès.";
+                    status.setText(fresh.isEmpty()
+                            ? "Compte authentifié · aucune caméra reçue"
+                            : "Aiwit : " + fresh.size() + " caméra(s) · actualisé à "
+                              + new SimpleDateFormat("HH:mm", Locale.FRANCE).format(new Date()));
                     renderDevices();
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
                     setBusy(false);
-                    status.setText("Impossible d'actualiser les caméras");
+                    cloudDiagnostic = "Échec de la synchronisation : " + friendlyError(e);
+                    status.setText("Liste Aiwit indisponible — synchronisation échouée");
+                    renderDevices();
                     info("Synchronisation", friendlyError(e)
                             + "\n\nEn cas de session expirée, reconnecte ton compte.");
                 });
@@ -235,6 +250,10 @@ public final class MainActivity extends Activity {
 
     private void renderDevices() {
         deviceContainer.removeAllViews();
+        if (devices.isEmpty()) {
+            showMessageIn(deviceContainer, cloudDiagnostic
+                    + "\nLes profils RTSP enregistrés ci-dessous ne sont pas des caméras Aiwit importées.");
+        }
         String filter = search.getText().toString().trim().toLowerCase(Locale.ROOT);
         int visible = 0;
         for (CloudApi.Device d : devices) {
@@ -305,7 +324,8 @@ public final class MainActivity extends Activity {
             deviceContainer.addView(row);
             visible++;
         }
-        deviceTitle.setText("Mes caméras (" + visible + "/" + (devices.size() + local.size()) + ")");
+        deviceTitle.setText("Caméras Aiwit : " + devices.size()
+                + "  |  Flux manuels : " + local.size());
         if (devices.isEmpty() && local.isEmpty()) showMessageIn(deviceContainer,
                 "Ajoute une caméra pour regarder son flux ici, sans ouvrir Aiwit.");
         else if (visible == 0) showMessageIn(deviceContainer,
@@ -506,15 +526,17 @@ public final class MainActivity extends Activity {
 
     private void showSettings() {
         String[] actions = { "Vérifier les mises à jour",
-                "Ajouter une caméra au direct",
+                "Diagnostic connexion Aiwit",
+                "Ajouter un flux RTSP / HLS",
                 "Déconnexion du compte Aiwit", "À propos et confidentialité" };
         new AlertDialog.Builder(this)
                 .setTitle("Options CHK Caméras")
                 .setItems(actions, (dialog, choice) -> {
                     switch (choice) {
                         case 0: updater.check(true); break;
-                        case 1: configureStream(null, "Caméra maison", true); break;
-                        case 2: logout(); break;
+                        case 1: info("Diagnostic Aiwit", cloudDiagnostic); break;
+                        case 2: configureStream(null, "Caméra maison", true); break;
+                        case 3: logout(); break;
                         default: info("Confidentialité",
                                 "Application personnelle sans publicités ni analyseurs de comportement.\n"
                                 + "Connexion directe chiffrée vers le cloud Aiwit pour les métadonnées.\n"
