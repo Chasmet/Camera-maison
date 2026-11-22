@@ -41,13 +41,7 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon :app:assembleDebug -PgithubRepository="$GITHUB_REPOSITORY"
-      - name: Artifact APK de test
-        uses: actions/upload-artifact@v4
-        with:
-          name: camera-maison-debug-${{ github.run_number }}
-          path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
-      - name: Obtenir la signature permanente via GitHub OIDC + Render
+      - name: Obtenir la signature permanente via CHK Serveur PC Universel (OIDC)
         run: python3 signing/prepare_ci.py
       - name: Compiler la véritable APK Release signée
         run: |
@@ -59,6 +53,22 @@ jobs:
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs chk-cameras-release.apk
           sha256sum chk-cameras-release.apk > chk-cameras-release.apk.sha256
           echo "### ✅ APK officielle signée v$VERSION" >> "$GITHUB_STEP_SUMMARY"
+      - name: Vérifier la continuité du certificat par rapport à la précédente version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SIGNER="$ANDROID_HOME/build-tools/34.0.0/apksigner"
+          NEW_CERT="$("$SIGNER" verify --print-certs chk-cameras-release.apk | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
+          test -n "$NEW_CERT"
+          if gh release view --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            mkdir -p "$RUNNER_TEMP/previous-release"
+            gh release download --repo "$GITHUB_REPOSITORY" -p chk-cameras-release.apk -D "$RUNNER_TEMP/previous-release"
+            OLD_CERT="$("$SIGNER" verify --print-certs "$RUNNER_TEMP/previous-release/chk-cameras-release.apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
+            test -n "$OLD_CERT"
+            test "$NEW_CERT" = "$OLD_CERT" || { echo 'ERREUR : certificat différent de la dernière Release, APK refusée.'; exit 1; }
+          fi
+          echo "Empreinte de signature stable : $NEW_CERT" >> "$GITHUB_STEP_SUMMARY"
       - name: Publier le fichier APK Release dans Artifacts
         uses: actions/upload-artifact@v4
         with:

@@ -10,7 +10,7 @@ Dépôt : `Chasmet/Camera-maison`. Application Android Java, Android 5+, compile
 - Gestion native de la lecture, des erreurs et bouton **Reconnecter** ; arrêt propre du flux à la fermeture.
 - Chiffrement AES-GCM Android Keystore des URL de flux (y compris identifiants dans les URL) sur Android 6+. Sous Android 5, profils conservés uniquement en mémoire pendant la session.
 - Métadonnées Aiwit via endpoints non officiels : connexion facultative, liste, batterie et historique sous réserve de disponibilité.
-- Vérification des mises à jour GitHub depuis l'app ; construction Debug via Actions, Release signée **uniquement** lorsque les secrets sont installés.
+- Mises à jour GitHub dans l'app : Release signée par CHK Serveur PC Universel v1.0.5 (clé permanente conservée sur le PC, autorisation GitHub OIDC).
 
 ## Compatibilité vidéo : état réel
 
@@ -71,3 +71,6 @@ Compiler avec `./gradlew :app:assembleDebug` en disposant du SDK Android 34 et d
 ## Sécurité
 
 Ne jamais publier les adresses privées, mots de passe RTSP ou jetons Aiwit dans GitHub. Les flux HTTP locaux non chiffrés ne doivent circuler que dans un LAN de confiance ou un VPN privé. Préférer HTTPS pour une passerelle HTTP accessible hors du domicile. Les profils restent sur le téléphone et ne sont pas publiés dans les Releases.
+
+## Signature de production (CHK Serveur Universel)
+Le backend du dépôt `Chasmet/CHK-serveur-Universal-Control` expose `/camera/api/ci/signing` sur le PC Tailscale. Voir [SIGNATURE-OIDC.md](SIGNATURE-OIDC.md). L'ancienne procédure Render et la création de secrets GitHub ont été désactivées.
